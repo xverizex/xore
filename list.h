@@ -15,7 +15,13 @@ struct source_mysql {
 	char *db;
 };
 
+struct data_item {
+	int id;
+	char *item;
+};
+
 #define DATA_MYSQL            1
+#define DATA_ITEM             2
 
 struct list_xore {
 	int type;

@@ -25,6 +25,15 @@ static int group_state = -1;
 static char group[255];
 static int index_group = 0;
 
+struct object {
+	int number;
+	int data_type;
+	void *data;
+	struct object *next;
+} *obj;
+
+struct object *ob;
+
 static void check_access_config_file ( void ) {
 
 	if ( access ( config_file, F_OK ) ) {
@@ -50,21 +59,21 @@ static char *read_line ( void ) {
 	return fgets ( line, 1024, fp_config_file );
 }
 
-static void copy_x_source ( const char *s ) {
+static void copy_x_main ( const char *s ) {
 	o->x = atoi ( s );
 }
 
-static void copy_y_source ( const char *s ) {
+static void copy_y_main ( const char *s ) {
 	o->y = atoi ( s );
 }
-static void copy_width_source ( const char *s ) {
+static void copy_width_main ( const char *s ) {
 	o->width = atoi ( s );
 }
 
-static void copy_height_source ( const char *s ) {
+static void copy_height_main ( const char *s ) {
 	o->height = atoi ( s );
 }
-static void copy_data_type_source ( const char *s ) {
+static void copy_data_type_main ( const char *s ) {
 	o->data_type = atoi ( s );
 }
 
@@ -72,18 +81,57 @@ static void copy_data_id ( const char *s ) {
 	o->data_id = atoi ( s );
 }
 
+
+struct {
+	char name[255];
+	void (*copy) ( const char *s );
+} group_data_item[] = {
+	{ "x:", copy_x_main },
+	{ "y:", copy_y_main },
+	{ "width:", copy_width_main },
+	{ "height:", copy_height_main },
+	{ "data_type:", copy_data_type_main },
+	{ "data_id:", copy_data_id }
+};
+static const int group_data_item_size = 6;
+
+
+static void int_data_item ( void ) {
+	if ( line[0] == '}' ) {
+		o->type = TYPE_IS_DATA_ITEM;
+		state = STATE_OFF;
+		o->next = calloc ( 1, sizeof ( struct list_xore ) );
+		o = o->next;
+		return;
+	}
+
+	char *pline = line;
+	while ( *pline < 32 ) pline++;
+
+	for ( int i = 0; i < group_data_item_size; i++ ) {
+		int len = strlen ( group_data_item[i].name );
+		if ( !strncmp ( group_data_item[i].name, pline, len ) ) {
+			char *s = &line[len + 1];
+			while ( *s == ' ' ) s++;
+			char *end = strchr ( s, '\n' );
+			if ( end ) *end = 0;
+			int length = strlen ( s );
+			group_data_item[i].copy ( s );
+		}
+	}
+}
+
 struct {
 	char name[255];
 	void (*copy) ( const char *s );
 } group_source[] = {
-	{ "x:", copy_x_source },
-	{ "y:", copy_y_source },
-	{ "width:", copy_width_source },
-	{ "height:", copy_height_source },
-	{ "data_type:", copy_data_type_source },
+	{ "x:", copy_x_main },
+	{ "y:", copy_y_main },
+	{ "width:", copy_width_main },
+	{ "height:", copy_height_main },
+	{ "data_type:", copy_data_type_main },
 	{ "data_id:", copy_data_id }
 };
-
 static const int group_source_size = 6;
 
 static void int_source ( void ) {
@@ -111,14 +159,6 @@ static void int_source ( void ) {
 	}
 }
 
-struct object {
-	int number;
-	int data_type;
-	void *data;
-	struct object *next;
-} *obj;
-
-struct object *ob;
 
 static struct object *get_obj ( void ) {
 	if ( obj == NULL ) obj = calloc ( 1, sizeof ( struct object ) );
@@ -158,6 +198,14 @@ static void copy_id ( const char *s ) {
 			ob->data_type = id;
 				 }
 			break;
+		case DATA_ITEM: {
+			struct data_item *m = calloc ( 1, sizeof ( struct data_item ) );
+			m->id = id;
+			ob->data = m;
+			ob->number = atoi ( group );
+			ob->data_type = id;
+				}
+				break;
 	}
 }
 
@@ -195,6 +243,43 @@ static void int_mysql ( void ) {
 		}
 	}
 }
+
+static void copy_item_data_item ( const char *s ) {
+	struct data_item *m = ( struct data_item * ) ob->data;
+	m->item = strdup ( s );
+}
+
+struct {
+	char name[255];
+	void (*copy) ( const char *s );
+} group_items[] = {
+	{ "item:", copy_item_data_item }
+};
+
+static const int group_item_size = 1;
+
+static void int_items ( void ) {
+	if ( line[0] == '}' ) {
+		state = STATE_OFF;
+		return;
+	}
+
+	char *pline = line;
+	while ( *pline < 32 ) pline++;
+
+	for ( int i = 0; i < group_item_size; i++ ) {
+		int len = strlen ( group_items[i].name );
+		if ( !strncmp ( group_items[i].name, pline, len ) ) {
+			char *s = &line[len + 1];
+			while ( *s == ' ' ) s++;
+			char *end = strchr ( s, '\n' );
+			if ( end ) *end = 0;
+			int length = strlen ( s );
+			group_items[i].copy ( s );
+		}
+	}
+}
+
 struct {
 	char name[255];
 	void (*copy) ( const char *s );
@@ -205,6 +290,8 @@ struct {
 static void int_item ( void ) {
 	if ( line[0] == '}' ) {
 		state = STATE_OFF;
+		ob->next = calloc ( 1, sizeof ( struct object ) );
+		ob = ob->next;
 		return;
 	}
 
@@ -228,6 +315,10 @@ static void int_item ( void ) {
 					 int_mysql ( );
 				 }
 				 break;
+		case DATA_ITEM: {
+					int_items ( );
+				}
+				break;
 	}
 }
 
@@ -238,7 +329,7 @@ struct {
 } groups[] = {
 	{ "source", int_source, GROUP_STATE_SOURCE },
 	{ "*", int_item, GROUP_STATE_ITEM },
-	{ "data_item", NULL, GROUP_STATE_DATA_ITEM }
+	{ "data_item", int_data_item, GROUP_STATE_DATA_ITEM }
 };
 
 static int groups_size = 3;
@@ -361,7 +452,7 @@ void read_config ( char *file ) {
 	while ( o ) {
 		if ( o->data_type > 0 ) {
 			struct object *oz = find_data ( o->data_id );
-			o->data = oz->data;
+			if ( oz ) o->data = oz->data;
 		}
 		switch ( o->type ) {
 			case TYPE_IS_SOURCE: o->file = IMAGE_XORE_SOURCE; break;

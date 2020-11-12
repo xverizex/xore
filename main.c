@@ -43,6 +43,14 @@ struct widgets {
 	GtkWidget *entry_db_mysql_source_main;
 	GtkWidget *box_buttons_end_source_main;
 	GtkWidget *button_save_source_main;
+	GtkWidget *window_data_item_main;
+	GtkWidget *box_data_item_main;
+	GtkWidget *frame_data_item_main;
+	GtkWidget *box_item_data_item_main;
+	GtkWidget *label_item_data_item_main;
+	GtkWidget *entry_item_data_item_main;
+	GtkWidget *box_buttons_end_data_item_main;
+	GtkWidget *button_save_data_item_main;
 
 	GtkWidget *STUBS;
 } w;
@@ -84,6 +92,24 @@ static void show_settings_source ( struct list_xore *l ) {
 }
 
 static void show_settings_data_item ( struct list_xore *l ) {
+	c_source_xore = l;
+
+	switch ( c_source_xore->data_type ) {
+		case DATA_ITEM:
+			if ( c_source_xore->data ) {
+				struct data_item *m = ( struct data_item * ) c_source_xore->data;
+				if ( m->item ) {
+					gtk_entry_set_text ( ( GtkEntry * ) w.entry_item_data_item_main, m->item );
+				} else {
+					gtk_entry_set_text ( ( GtkEntry * ) w.entry_item_data_item_main, "" );
+				}
+			} else {
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_item_data_item_main, "" );
+			}
+			break;
+	}
+
+	gtk_widget_show_all ( w.window_data_item_main );
 }
 
 static void item_settings_row_activate_cb ( GtkMenuItem *item, gpointer data ) {
@@ -100,6 +126,7 @@ static void item_settings_row_activate_cb ( GtkMenuItem *item, gpointer data ) {
 }
 
 static void show_menu_popup_source ( struct list_xore *l ) {
+	c_source_xore = l;
 	GtkWidget *gtk_menu = gtk_menu_new ( );
 	GtkWidget *item_settings = gtk_menu_item_new_with_label ( "Настроить" );
 	g_signal_connect ( item_settings, "activate", G_CALLBACK ( item_settings_row_activate_cb ), l );
@@ -110,6 +137,7 @@ static void show_menu_popup_source ( struct list_xore *l ) {
 }
 
 static void show_menu_popup_data_item ( struct list_xore *l ) {
+	c_source_xore = l;
 	GtkWidget *gtk_menu = gtk_menu_new ( );
 	GtkWidget *item_settings = gtk_menu_item_new_with_label ( "Настроить" );
 	g_signal_connect ( item_settings, "activate", G_CALLBACK ( item_settings_row_activate_cb ), l );
@@ -391,6 +419,7 @@ static void combo_box_source_source_main_changed_cb ( GtkComboBox *widget, gpoin
 			gtk_entry_set_text ( ( GtkEntry * ) w.entry_password_mysql_source_main, "" );
 			gtk_entry_set_text ( ( GtkEntry * ) w.entry_host_mysql_source_main, "" );
 			gtk_entry_set_text ( ( GtkEntry * ) w.entry_port_mysql_source_main, "" );
+			gtk_entry_set_text ( ( GtkEntry * ) w.entry_db_mysql_source_main, "" );
 			gtk_widget_show ( w.frame_mysql_source_main );
 			break;
 	}
@@ -566,8 +595,71 @@ static void create_source_settings ( void ) {
 	gtk_container_add ( ( GtkContainer * ) w.window_source_main, w.box_source_main );
 
 }
+static gboolean window_data_item_main_delete_event_cb ( GtkWidget *widget, gpointer data ) {
+	gtk_widget_hide ( w.window_data_item_main );
+	return TRUE;
+}
+static void button_save_data_item_main_clicked_cb ( GtkButton *button, gpointer data ) {
+	const char *item = gtk_entry_get_text ( ( GtkEntry * ) w.entry_item_data_item_main );
+	if ( strlen ( item ) == 0 ) {
+		g_notification_set_body ( notify, "Должны быть указаны все поля" );
+		g_application_send_notification ( ( GApplication * ) app, NULL, notify );
+		return;
+	}
+
+	struct data_item *di = calloc ( 1, sizeof ( struct data_item ) );
+	if ( !di ) {
+		g_notification_set_body ( notify, "Не удалось выделить память для data_item" );
+		g_application_send_notification ( ( GApplication * ) app, NULL, notify );
+		return;
+	}
+
+	di->item = g_strdup ( item );
+	c_source_xore->data = di;
+	c_source_xore->data_type = DATA_ITEM;
+}
 
 static void create_data_item_settings ( void ) {
+	w.window_data_item_main = gtk_application_window_new ( app );
+	gtk_window_set_default_size ( ( GtkWindow * ) w.window_data_item_main, 400, 200 );
+	g_signal_connect ( w.window_data_item_main, "delete-event", G_CALLBACK ( window_data_item_main_delete_event_cb ), NULL );
+
+	w.box_data_item_main = gtk_box_new ( GTK_ORIENTATION_VERTICAL, 0 );
+	gtk_container_add ( ( GtkContainer * ) w.window_data_item_main, w.box_data_item_main );
+	w.frame_data_item_main = g_object_new ( GTK_TYPE_FRAME, "shadow-type", GTK_SHADOW_NONE, NULL );
+	gtk_widget_set_margin_top ( w.frame_data_item_main, 16 );
+	gtk_widget_set_margin_start ( w.frame_data_item_main, 32 );
+	gtk_widget_set_margin_end ( w.frame_data_item_main, 32 );
+
+	w.box_item_data_item_main = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	gtk_widget_set_margin_top ( w.box_item_data_item_main, 14 );
+	gtk_widget_set_margin_bottom ( w.box_item_data_item_main, 14 );
+	gtk_widget_set_margin_start ( w.box_item_data_item_main, 14 );
+	gtk_widget_set_margin_end ( w.box_item_data_item_main, 14 );
+
+	w.label_item_data_item_main = gtk_label_new ( "Порция данных" );
+	w.entry_item_data_item_main = gtk_entry_new ( );
+	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_item_data_item_main, 1 );
+	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_item_data_item_main, 30 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_item_data_item_main, w.label_item_data_item_main, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_item_data_item_main, w.entry_item_data_item_main, FALSE, FALSE, 0 );
+	gtk_widget_set_margin_top ( w.box_item_data_item_main, 14 );
+	gtk_widget_set_margin_bottom ( w.box_item_data_item_main, 14 );
+	gtk_widget_set_margin_start ( w.box_item_data_item_main, 14 );
+	gtk_widget_set_margin_end ( w.box_item_data_item_main, 14 );
+	gtk_container_add ( ( GtkContainer * ) w.frame_data_item_main, w.box_item_data_item_main );
+
+	w.box_buttons_end_data_item_main = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	w.button_save_data_item_main = gtk_button_new_with_label ( "Сохранить" );
+	gtk_widget_set_margin_top ( w.button_save_data_item_main, 14 );
+	gtk_widget_set_margin_bottom ( w.button_save_data_item_main, 14 );
+	gtk_widget_set_margin_start ( w.button_save_data_item_main, 14 );
+	gtk_widget_set_margin_end ( w.button_save_data_item_main, 14 );
+	g_signal_connect ( w.button_save_data_item_main, "clicked", G_CALLBACK ( button_save_data_item_main_clicked_cb ), NULL );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_buttons_end_data_item_main, w.button_save_data_item_main, FALSE, FALSE, 0 );
+
+	gtk_box_pack_start ( ( GtkBox * ) w.box_data_item_main, w.frame_data_item_main, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_data_item_main, w.box_buttons_end_data_item_main, FALSE, FALSE, 0 );
 }
 
 static gboolean window_main_delete_event_cb ( GtkWidget *widget, gpointer data ) {
@@ -599,6 +691,21 @@ static void create_group ( FILE *fp, struct list_xore *l ) {
 			break;
 		case TYPE_IS_DATA_ITEM:
 			fprintf ( fp, "data_item {\n" );
+			fprintf ( fp, "\tx: %d\n", l->x );
+			fprintf ( fp, "\ty: %d\n", l->y );
+			fprintf ( fp, "\twidth: %d\n", l->width );
+			fprintf ( fp, "\theight: %d\n", l->height );
+			fprintf ( fp, "\tdata_type: %d\n", l->data_type );
+			switch ( l->data_type ) {
+				case DATA_ITEM: {
+							 if ( l->data ) {
+							 	struct data_item *m = ( struct data_item * ) l->data;
+							 	fprintf ( fp, "\tdata_id: %d\n", m->id );
+							 }
+						 }
+						 break;
+			}
+			fprintf ( fp, "}\n\n" );
 			break;
 	}
 }
@@ -622,6 +729,17 @@ static void create_data ( FILE *fp, struct list_xore *l ) {
 					 }
 				 }
 				 break;
+		case DATA_ITEM: {
+					 if ( l->data ) {
+					 	struct data_item *m = ( struct data_item * ) l->data;
+						m->id = id_data_storage++;
+						fprintf ( fp, "%d {\n", m->id );
+						fprintf ( fp, "\tid: %d\n", DATA_ITEM );
+						if ( m->item ) fprintf ( fp, "\titem: %s\n", m->item );
+						fprintf ( fp, "}\n\n" );
+					 }
+				}
+				break;
 	}
 }
 
@@ -636,6 +754,11 @@ static void action_activate_select_save_project ( GSimpleAction *simple, GVarian
 						     create_group ( fp, l );
 					     }
 					     break;
+			case TYPE_IS_DATA_ITEM: {
+						     create_data ( fp, l );
+						     create_group ( fp, l );
+						}
+						break;
 		}
 
 		l = l->next;
