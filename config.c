@@ -7,7 +7,9 @@
 #include "list.h"
 
 extern struct list_xore *object;
+extern struct nodes *nodes;
 static struct list_xore *o;
+static struct nodes *n;
 
 static FILE *fp_config_file;
 char *config_file;
@@ -20,6 +22,7 @@ static int state = STATE_OFF;
 #define GROUP_STATE_SOURCE      0
 #define GROUP_STATE_DATA_ITEM   1
 #define GROUP_STATE_ITEM        2
+#define GROUP_STATE_NODE        3
 static int group_state = -1;
 
 static char group[255];
@@ -33,6 +36,11 @@ struct object {
 } *obj;
 
 struct object *ob;
+
+static struct nodes *get_nodes ( void ) {
+	if ( nodes == NULL ) nodes = calloc ( 1, sizeof ( struct nodes ) );
+	return nodes;
+}
 
 static void check_access_config_file ( void ) {
 
@@ -59,6 +67,78 @@ static char *read_line ( void ) {
 	return fgets ( line, 1024, fp_config_file );
 }
 
+static struct list_xore *find_id_list_xore ( const int id ) {
+	struct list_xore *l = object;
+	while ( l->next ) {
+		if ( l->id == id ) return l;
+
+		l = l->next;
+	}
+	return NULL;
+}
+
+static void copy_sx_node ( const char *s ) {
+	n->sx = atoi ( s );
+}
+
+static void copy_sy_node ( const char *s ) {
+	n->sy = atoi ( s );
+}
+
+static void copy_dx_node ( const char *s ) {
+	n->dx = atoi ( s );
+}
+
+static void copy_dy_node ( const char *s ) {
+	n->dy = atoi ( s );
+}
+
+static void copy_in_node ( const char *s ) {
+	n->in = find_id_list_xore ( atoi ( s ) );
+}
+
+static void copy_out_node ( const char *s ) {
+	n->out = find_id_list_xore ( atoi ( s ) );
+}
+
+struct {
+	char name[255];
+	void (*copy) ( const char *s );
+} group_node[] = {
+	{ "sx:", copy_sx_node },
+	{ "sy:", copy_sy_node },
+	{ "dx:", copy_dx_node },
+	{ "dy:", copy_dy_node },
+	{ "in:", copy_in_node },
+	{ "out:", copy_out_node }
+};
+static const int group_node_size = 6;
+
+static void int_node ( void ) {
+	if ( line[0] == '}' ) {
+		/* здесь node нужен */
+		state = STATE_OFF;
+		n->next = calloc ( 1, sizeof ( struct nodes ) );
+		n = n->next;
+		return;
+	}
+
+	char *pline = line;
+	while ( *pline < 32 ) pline++;
+
+	for ( int i = 0; i < group_node_size; i++ ) {
+		int len = strlen ( group_node[i].name );
+		if ( !strncmp ( group_node[i].name, pline, len ) ) {
+			char *s = &line[len + 1];
+			while ( *s == ' ' ) s++;
+			char *end = strchr ( s, '\n' );
+			if ( end ) *end = 0;
+			int length = strlen ( s );
+			group_node[i].copy ( s );
+		}
+	}
+}
+
 static void copy_x_main ( const char *s ) {
 	o->x = atoi ( s );
 }
@@ -81,11 +161,15 @@ static void copy_data_id ( const char *s ) {
 	o->data_id = atoi ( s );
 }
 
+static void copy_id_main ( const char *s ) {
+	o->id = atoi ( s );
+}
 
 struct {
 	char name[255];
 	void (*copy) ( const char *s );
 } group_data_item[] = {
+	{ "id:", copy_id_main },
 	{ "x:", copy_x_main },
 	{ "y:", copy_y_main },
 	{ "width:", copy_width_main },
@@ -93,7 +177,7 @@ struct {
 	{ "data_type:", copy_data_type_main },
 	{ "data_id:", copy_data_id }
 };
-static const int group_data_item_size = 6;
+static const int group_data_item_size = 7;
 
 
 static void int_data_item ( void ) {
@@ -125,6 +209,7 @@ struct {
 	char name[255];
 	void (*copy) ( const char *s );
 } group_source[] = {
+	{ "id:", copy_id_main },
 	{ "x:", copy_x_main },
 	{ "y:", copy_y_main },
 	{ "width:", copy_width_main },
@@ -132,7 +217,7 @@ struct {
 	{ "data_type:", copy_data_type_main },
 	{ "data_id:", copy_data_id }
 };
-static const int group_source_size = 6;
+static const int group_source_size = 7;
 
 static void int_source ( void ) {
 	if ( line[0] == '}' ) {
@@ -329,10 +414,11 @@ struct {
 } groups[] = {
 	{ "source", int_source, GROUP_STATE_SOURCE },
 	{ "*", int_item, GROUP_STATE_ITEM },
-	{ "data_item", int_data_item, GROUP_STATE_DATA_ITEM }
+	{ "data_item", int_data_item, GROUP_STATE_DATA_ITEM },
+	{ "node", int_node, GROUP_STATE_NODE }
 };
 
-static int groups_size = 3;
+static int groups_size = 4;
 
 static void (*interrupt) ( void );
 
@@ -441,6 +527,7 @@ void read_config ( char *file ) {
 	if ( object == NULL ) object = calloc ( 1, sizeof ( struct list_xore ) );
 	o = object;
 	ob = get_obj();
+	n = get_nodes();
 
 	config_file = file;
 

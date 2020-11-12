@@ -5,6 +5,7 @@
 
 #define TYPE_IS_SOURCE          0
 #define TYPE_IS_DATA_ITEM       1
+#define TYPE_IS_NODE            2
 
 struct source_mysql {
 	int id;
@@ -20,10 +21,22 @@ struct data_item {
 	char *item;
 };
 
+struct nodes {
+	double sx;
+	double sy;
+	double dx;
+	double dy;
+	struct list_xore *in;
+	struct list_xore *out;
+	struct nodes *next;
+};
+
 #define DATA_MYSQL            1
 #define DATA_ITEM             2
+#define DATA_NODE             3
 
 struct list_xore {
+	int id;
 	int type;
 	char *file;
 	int x;

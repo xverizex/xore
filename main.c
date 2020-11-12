@@ -59,6 +59,18 @@ struct list_xore *object;
 
 struct list_xore *c_source_xore;
 
+int button_press_1;
+
+struct nodes *nodes;
+struct nodes *node_current;
+
+static int global_xore_id = 0;
+
+static struct nodes *get_nodes ( ) {
+	if ( nodes == NULL ) nodes = calloc ( 1, sizeof ( struct nodes ) );
+	return nodes;
+}
+
 static struct list_xore *get_objects ( ) {
 	if ( object == NULL ) object = calloc ( 1, sizeof ( struct list_xore ) );
 	return object;
@@ -125,6 +137,27 @@ static void item_settings_row_activate_cb ( GtkMenuItem *item, gpointer data ) {
 	}
 }
 
+static void create_add_node ( struct list_xore *l ) {
+	struct nodes *n = get_nodes();
+	while ( n->next ) n = n->next;
+	n->in = l;
+	n->sx = l->x + l->width / 2;
+	n->sy = l->y + l->height / 2;
+	node_current = n;
+}
+
+static void item_add_node_row_activate_cb ( GtkMenuItem *item, gpointer data ) {
+	struct list_xore *l = ( struct list_xore * ) data;
+	switch ( l->type ) {
+		case TYPE_IS_SOURCE: 
+			create_add_node ( l );
+			break;
+		case TYPE_IS_DATA_ITEM:
+			break;
+
+	}
+}
+
 static void show_menu_popup_source ( struct list_xore *l ) {
 	c_source_xore = l;
 	GtkWidget *gtk_menu = gtk_menu_new ( );
@@ -132,6 +165,10 @@ static void show_menu_popup_source ( struct list_xore *l ) {
 	g_signal_connect ( item_settings, "activate", G_CALLBACK ( item_settings_row_activate_cb ), l );
 	gtk_menu_shell_append ( ( GtkMenuShell * ) gtk_menu, item_settings );
 	gtk_widget_show ( item_settings );
+	GtkWidget *item_add_node = gtk_menu_item_new_with_label ( "Соединить узел" );
+	g_signal_connect ( item_add_node, "activate", G_CALLBACK ( item_add_node_row_activate_cb ), l );
+	gtk_menu_shell_append ( ( GtkMenuShell * ) gtk_menu, item_add_node );
+	gtk_widget_show ( item_add_node );
 
 	gtk_menu_popup_at_pointer ( ( GtkMenu * ) gtk_menu, NULL );
 }
@@ -209,6 +246,7 @@ static gboolean drawing_area_drag_drop_cb ( GtkWidget *widget,
 			break;
 	}
 
+	l->id = global_xore_id++;
 	l->x = drag_x;
 	l->y = drag_y;
 	l->width = 64;
@@ -271,7 +309,7 @@ struct list_xore *l_current;
 
 static gboolean drawing_area_motion_event_cb ( GtkWidget *widget, GdkEvent *event, gpointer data ) {
 
-	if ( l_current ) {
+	if ( l_current && button_press_1 ) {
 		GdkEventMotion *ev = ( GdkEventMotion * ) event;
 		int old_x = l_current->x;
 		int old_y = l_current->y;
@@ -310,11 +348,20 @@ static gboolean drawing_area_motion_event_cb ( GtkWidget *widget, GdkEvent *even
 		}
 	}
 
+	if ( node_current ) {
+		GdkEventMotion *ev = ( GdkEventMotion * ) event;
+		node_current->dx = ev->x;
+		node_current->dy = ev->y;
+		gtk_widget_queue_draw ( w.drawing_area );
+	}
+
 	return FALSE;
 }
 
 static gboolean drawing_area_button_release_event_cb ( GtkWidget *widget, GdkEvent *event, gpointer data ) {
 	l_current = NULL;
+	button_press_1 = 0;
+
 }
 
 static gboolean drawing_area_draw_cb ( GtkWidget *widget, cairo_t *cr, gpointer data ) {
@@ -356,6 +403,35 @@ static gboolean drawing_area_draw_cb ( GtkWidget *widget, cairo_t *cr, gpointer 
 		xl = xl->next;
 	}
 
+	struct nodes *n = get_nodes();
+	while ( n ) {
+		if ( n->in && n->out ) {
+			struct list_xore *ll_in = n->in;
+			struct list_xore *ll_out = n->out;
+			int in_point_x, in_point_y, out_point_x, out_point_y;
+			in_point_x = ll_in->x + ll_in->width / 2;
+			in_point_y = ll_in->y + ll_in->height / 2;
+			out_point_x = ll_out->x + ll_out->width / 2;
+			out_point_y = ll_out->y + ll_out->height / 2;
+			cairo_set_source_rgb ( cr, 0.0, 0.0, 0.0 );
+			cairo_set_line_width ( cr, 1.0 );
+			cairo_move_to ( cr, in_point_x, in_point_y );
+			cairo_line_to ( cr, out_point_x, out_point_y );
+			cairo_stroke ( cr );
+		}
+
+		n = n->next;
+	}
+
+	if ( node_current ) {
+		struct nodes *n = node_current;
+		cairo_set_source_rgb ( cr, 0.0, 0.0, 0.0 );
+		cairo_set_line_width ( cr, 1.0 );
+		cairo_move_to ( cr, n->sx, n->sy );
+		cairo_line_to ( cr, n->dx, n->dy );
+		cairo_stroke ( cr );
+	}
+
 	return FALSE;
 }
 
@@ -372,6 +448,7 @@ static gboolean drawing_area_button_press_event_cb ( GtkWidget *widget, GdkEvent
 			if ( btn->x >= l->x && btn->x <= ( l->x + l->width ) ) {
 				if ( btn->y >= l->y && btn->y <= ( l->y + l->height ) ) {
 					if ( btn->button == 1 ) {
+						button_press_1 = 1;
 						l_current = l;
 						l->sl_x = btn->x - l->x;
 						l->sl_y = btn->y - l->y;
@@ -396,6 +473,25 @@ static gboolean drawing_area_button_press_event_cb ( GtkWidget *widget, GdkEvent
 		}
 		l = l->next;
 	}
+
+	l = get_objects ( );
+	while ( l->next && node_current ) {
+		struct nodes *n = node_current;
+
+		if ( n->dx >= l->x && n->dx <= l->x + l->width ) {
+			if ( n->dy >= l->y && n->dy <= l->y + l->height ) {
+				n->out = l;
+				n->next = calloc ( 1, sizeof ( struct nodes ) );
+				n->dx = l->x + l->width / 2;
+				n->dy = l->y + l->height / 2;
+				gtk_widget_queue_draw ( w.drawing_area );
+				break;
+			}
+		}
+
+		l = l->next;
+	}
+	node_current = NULL;
 
 	return FALSE;
 }
@@ -436,12 +532,6 @@ static void check_and_save_mysql_source ( ) {
 		g_application_send_notification ( ( GApplication * ) app, NULL, notify );
 		return;
 	}
-#if 0
-	int len_login = strlen ( login );
-	int len_password = strlen ( password );
-	int len_host = strlen ( host );
-	int len_port = strlen ( port );
-#endif
 
 	struct source_mysql *sm = calloc ( 1, sizeof ( struct source_mysql ) );
 	if ( !sm ) {
@@ -673,6 +763,7 @@ static void create_group ( FILE *fp, struct list_xore *l ) {
 	switch ( l->type ) {
 		case TYPE_IS_SOURCE:
 			fprintf ( fp, "source {\n" );
+			fprintf ( fp, "\tid: %d\n", l->id );
 			fprintf ( fp, "\tx: %d\n", l->x );
 			fprintf ( fp, "\ty: %d\n", l->y );
 			fprintf ( fp, "\twidth: %d\n", l->width );
@@ -691,6 +782,7 @@ static void create_group ( FILE *fp, struct list_xore *l ) {
 			break;
 		case TYPE_IS_DATA_ITEM:
 			fprintf ( fp, "data_item {\n" );
+			fprintf ( fp, "\tid: %d\n", l->id );
 			fprintf ( fp, "\tx: %d\n", l->x );
 			fprintf ( fp, "\ty: %d\n", l->y );
 			fprintf ( fp, "\twidth: %d\n", l->width );
@@ -743,6 +835,17 @@ static void create_data ( FILE *fp, struct list_xore *l ) {
 	}
 }
 
+static void create_data_node ( FILE *fp, struct nodes *n ) {
+	fprintf ( fp, "node {\n" );
+	fprintf ( fp, "\tsx: %d\n", (int) n->sx );
+	fprintf ( fp, "\tsy: %d\n", (int) n->sy );
+	fprintf ( fp, "\tdx: %d\n", (int) n->dx );
+	fprintf ( fp, "\tdy: %d\n", (int) n->dy );
+	fprintf ( fp, "\tin: %d\n", n->in->id );
+	fprintf ( fp, "\tout: %d\n", n->out->id );
+	fprintf ( fp, "}\n\n" );
+}
+
 static void action_activate_select_save_project ( GSimpleAction *simple, GVariant *parameter, gpointer data ) {
 	struct list_xore *l = get_objects();
 	FILE *fp = fopen ( current_project, "w" );
@@ -762,6 +865,14 @@ static void action_activate_select_save_project ( GSimpleAction *simple, GVarian
 		}
 
 		l = l->next;
+	}
+
+	struct nodes *n = get_nodes();
+
+	while ( n->next ) {
+		create_data_node ( fp, n );
+
+		n = n->next;
 	}
 
 	fclose ( fp );
@@ -868,6 +979,7 @@ static void action_activate_select_open_project ( GSimpleAction *simple, GVarian
 		read_config ( file );
 		g_free ( file );
 		gtk_widget_queue_draw ( w.drawing_area );
+		global_xore_id = 0;
 	}
 
 	gtk_widget_destroy ( dialog );
@@ -910,6 +1022,7 @@ static void action_activate_select_new_project ( GSimpleAction *simple, GVariant
 		file = gtk_file_chooser_get_filename ( chooser );
 		save_new_project ( file );
 		g_free ( file );
+		global_xore_id = 0;
 	}
 
 	gtk_widget_destroy ( dialog );
@@ -965,7 +1078,7 @@ static void app_activate_cb ( GtkApplication *app, gpointer data ) {
 	gtk_container_add ( ( GtkContainer * ) w.frame_tools, w.box_tools );
 
 	w.drawing_area = gtk_drawing_area_new ( );
-	gtk_widget_add_events ( w.drawing_area, GDK_BUTTON1_MOTION_MASK | GDK_BUTTON_PRESS_MASK );
+	gtk_widget_add_events ( w.drawing_area, GDK_BUTTON1_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_BUTTON_RELEASE_MASK );
 	g_signal_connect ( w.drawing_area, "draw", G_CALLBACK ( drawing_area_draw_cb ), NULL );
 	g_signal_connect ( w.drawing_area, "drag-drop", G_CALLBACK ( drawing_area_drag_drop_cb ), NULL );
 	g_signal_connect ( w.drawing_area, "drag-motion", G_CALLBACK ( drawing_area_drag_motion_cb ), NULL );
