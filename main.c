@@ -16,6 +16,8 @@ struct widgets {
 	GtkWidget *button_source;
 	GtkWidget *image_t_data_item;
 	GtkWidget *button_data_item;
+	GtkWidget *image_t_input;
+	GtkWidget *button_input;
 	GtkWidget *drawing_area;
 	GtkWidget *header_bar;
 	GtkWidget *window_source_main;
@@ -41,6 +43,9 @@ struct widgets {
 	GtkWidget *box_db_mysql_source_main;
 	GtkWidget *label_db_mysql_source_main;
 	GtkWidget *entry_db_mysql_source_main;
+	GtkWidget *box_table_mysql_source_main;
+	GtkWidget *label_table_mysql_source_main;
+	GtkWidget *entry_table_mysql_source_main;
 	GtkWidget *box_buttons_end_source_main;
 	GtkWidget *button_save_source_main;
 	GtkWidget *window_data_item_main;
@@ -51,6 +56,38 @@ struct widgets {
 	GtkWidget *entry_item_data_item_main;
 	GtkWidget *box_buttons_end_data_item_main;
 	GtkWidget *button_save_data_item_main;
+	GtkWidget *window_input;
+	GtkWidget *box_input;
+	GtkWidget *frame_input_input;
+	GtkWidget *box_input_input;
+	GtkWidget *label_input_input;
+	GtkWidget *combo_box_input_input;
+	GtkWidget *frame_mysql_input;
+	GtkWidget *box_mysql_input;
+	GtkWidget *box_login_mysql_input;
+	GtkWidget *label_login_mysql_input;
+	GtkWidget *entry_login_mysql_input;
+	GtkWidget *box_password_mysql_input;
+	GtkWidget *label_password_mysql_input;
+	GtkWidget *entry_password_mysql_input;
+	GtkWidget *box_host_mysql_input;
+	GtkWidget *label_host_mysql_input;
+	GtkWidget *entry_host_mysql_input;
+	GtkWidget *box_port_mysql_input;
+	GtkWidget *label_port_mysql_input;
+	GtkWidget *entry_port_mysql_input;
+	GtkWidget *box_db_mysql_input;
+	GtkWidget *label_db_mysql_input;
+	GtkWidget *entry_db_mysql_input;
+	GtkWidget *box_table_mysql_input;
+	GtkWidget *label_table_mysql_input;
+	GtkWidget *entry_table_mysql_input;
+	GtkWidget *button_save_input;
+	GtkWidget *box_buttons_end_input;
+	GtkWidget *frame_window_input;
+	GtkWidget *box_window_input;
+	GtkWidget *label_window_input;
+	GtkWidget *entry_window_input;
 
 	GtkWidget *STUBS;
 } w;
@@ -93,6 +130,7 @@ static void show_settings_source ( struct list_xore *l ) {
 				gtk_entry_set_text ( ( GtkEntry * ) w.entry_host_mysql_source_main, m->host );
 				gtk_entry_set_text ( ( GtkEntry * ) w.entry_port_mysql_source_main, m->port );
 				gtk_entry_set_text ( ( GtkEntry * ) w.entry_db_mysql_source_main, m->db );
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_table_mysql_source_main, m->table );
 			}
 			gtk_widget_show ( w.frame_mysql_source_main );
 			break;
@@ -124,6 +162,38 @@ static void show_settings_data_item ( struct list_xore *l ) {
 	gtk_widget_show_all ( w.window_data_item_main );
 }
 
+static void show_settings_input ( struct list_xore *l ) {
+	c_source_xore = l;
+	gtk_widget_show_all ( w.window_input );
+
+	const char *item = gtk_combo_box_get_active_id ( ( GtkComboBox * ) w.combo_box_input_input );
+	int id = atoi ( item );
+
+	switch ( c_source_xore->data_type ) {
+		case DATA_MYSQL:
+			gtk_combo_box_set_active ( ( GtkComboBox * ) w.combo_box_input_input, 1 );
+			if ( c_source_xore->data ) {
+				struct source_mysql *m = ( struct source_mysql * ) c_source_xore->data;
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_login_mysql_input, m->login );
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_password_mysql_input, m->password );
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_host_mysql_input, m->host );
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_port_mysql_input, m->port );
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_db_mysql_input, m->db );
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_table_mysql_input, m->table );
+			}
+			gtk_widget_show ( w.frame_mysql_input );
+			gtk_widget_hide ( w.frame_window_input );
+			break;
+		case DATA_WINDOW:
+			break;
+		default:
+			gtk_combo_box_set_active ( ( GtkComboBox * ) w.combo_box_source_source_main, 0 );
+			gtk_widget_hide ( w.frame_mysql_input );
+			gtk_widget_hide ( w.frame_window_input );
+			break;
+	}
+}
+
 static void item_settings_row_activate_cb ( GtkMenuItem *item, gpointer data ) {
 	struct list_xore *l = ( struct list_xore * ) data;
 	switch ( l->type ) {
@@ -133,7 +203,9 @@ static void item_settings_row_activate_cb ( GtkMenuItem *item, gpointer data ) {
 		case TYPE_IS_DATA_ITEM:
 			show_settings_data_item ( l );
 			break;
-
+		case TYPE_IS_INPUT:
+			show_settings_input ( l );
+			break;
 	}
 }
 
@@ -153,9 +225,21 @@ static void item_add_node_row_activate_cb ( GtkMenuItem *item, gpointer data ) {
 			create_add_node ( l );
 			break;
 		case TYPE_IS_DATA_ITEM:
+			create_add_node ( l );
 			break;
 
 	}
+}
+
+static void show_menu_popup_input ( struct list_xore *l ) {
+	c_source_xore = l;
+	GtkWidget *gtk_menu = gtk_menu_new ( );
+	GtkWidget *item_settings = gtk_menu_item_new_with_label ( "Настроить" );
+	g_signal_connect ( item_settings, "activate", G_CALLBACK ( item_settings_row_activate_cb ), l );
+	gtk_menu_shell_append ( ( GtkMenuShell * ) gtk_menu, item_settings );
+	gtk_widget_show ( item_settings );
+
+	gtk_menu_popup_at_pointer ( ( GtkMenu * ) gtk_menu, NULL );
 }
 
 static void show_menu_popup_source ( struct list_xore *l ) {
@@ -180,6 +264,10 @@ static void show_menu_popup_data_item ( struct list_xore *l ) {
 	g_signal_connect ( item_settings, "activate", G_CALLBACK ( item_settings_row_activate_cb ), l );
 	gtk_menu_shell_append ( ( GtkMenuShell * ) gtk_menu, item_settings );
 	gtk_widget_show ( item_settings );
+	GtkWidget *item_add_node = gtk_menu_item_new_with_label ( "Соединить узел" );
+	g_signal_connect ( item_add_node, "activate", G_CALLBACK ( item_add_node_row_activate_cb ), l );
+	gtk_menu_shell_append ( ( GtkMenuShell * ) gtk_menu, item_add_node );
+	gtk_widget_show ( item_add_node );
 
 	gtk_menu_popup_at_pointer ( ( GtkMenu * ) gtk_menu, NULL );
 }
@@ -244,6 +332,11 @@ static gboolean drawing_area_drag_drop_cb ( GtkWidget *widget,
 			l->file = IMAGE_XORE_DATA_ITEM;
 			l->open_menu = show_menu_popup_data_item;
 			break;
+		case TYPE_IS_INPUT:
+			l->type = TYPE_IS_INPUT;
+			l->file = IMAGE_XORE_INPUT;
+			l->open_menu = show_menu_popup_input;
+			break;
 	}
 
 	l->id = global_xore_id++;
@@ -274,8 +367,11 @@ static void image_drag_begin_cb ( GtkWidget *widget, GdkDragContext *context, gp
 	if ( image == w.image_t_source ) {
 		drag_image = TYPE_IS_SOURCE;
 	}
-	if( image == w.image_t_data_item ) {
+	if ( image == w.image_t_data_item ) {
 		drag_image = TYPE_IS_DATA_ITEM;
+	}
+	if ( image == w.image_t_input ) {
+		drag_image = TYPE_IS_INPUT;
 	}
 
 	drag = 1;
@@ -285,6 +381,7 @@ static void image_drag_begin_cb ( GtkWidget *widget, GdkDragContext *context, gp
 static void create_tools ( ) {
 	w.image_t_source = gtk_image_new_from_file ( IMAGE_XORE_SOURCE );
 	w.image_t_data_item = gtk_image_new_from_file ( IMAGE_XORE_DATA_ITEM );
+	w.image_t_input = gtk_image_new_from_file ( IMAGE_XORE_INPUT );
 
 	w.button_source = gtk_button_new ( );
 	gtk_button_set_image ( ( GtkButton * ) w.button_source, w.image_t_source );
@@ -292,8 +389,12 @@ static void create_tools ( ) {
 	w.button_data_item = gtk_button_new ( );
 	gtk_button_set_image ( ( GtkButton * ) w.button_data_item, w.image_t_data_item );
 
+	w.button_input = gtk_button_new ( );
+	gtk_button_set_image ( ( GtkButton * ) w.button_input, w.image_t_input );
+
 	gtk_drag_source_set ( w.button_source, GDK_BUTTON1_MASK, &target, 1, GDK_ACTION_COPY );
 	gtk_drag_source_set ( w.button_data_item, GDK_BUTTON1_MASK, &target, 1, GDK_ACTION_COPY );
+	gtk_drag_source_set ( w.button_input, GDK_BUTTON1_MASK, &target, 1, GDK_ACTION_COPY );
 
 	g_signal_connect ( w.button_source, "drag-motion", G_CALLBACK ( image_drag_motion_cb ), NULL );
 	g_signal_connect ( w.button_source, "drag-begin", G_CALLBACK ( image_drag_begin_cb ), NULL );
@@ -301,8 +402,12 @@ static void create_tools ( ) {
 	g_signal_connect ( w.button_data_item, "drag-motion", G_CALLBACK ( image_drag_motion_cb ), NULL );
 	g_signal_connect ( w.button_data_item, "drag-begin", G_CALLBACK ( image_drag_begin_cb ), NULL );
 
+	g_signal_connect ( w.button_input, "drag-motion", G_CALLBACK ( image_drag_motion_cb ), NULL );
+	g_signal_connect ( w.button_input, "drag-begin", G_CALLBACK ( image_drag_begin_cb ), NULL );
+
 	gtk_box_pack_start ( ( GtkBox * ) w.box_tools, w.button_source, FALSE, FALSE, 0 );
 	gtk_box_pack_start ( ( GtkBox * ) w.box_tools, w.button_data_item, FALSE, FALSE, 0 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_tools, w.button_input, FALSE, FALSE, 0 );
 }
 
 struct list_xore *l_current;
@@ -384,6 +489,10 @@ static gboolean drawing_area_draw_cb ( GtkWidget *widget, cairo_t *cr, gpointer 
 	       			surface = cairo_image_surface_create_from_png ( IMAGE_XORE_DATA_ITEM );
 				width = height = 64;
 				break;
+			case TYPE_IS_INPUT:
+	       			surface = cairo_image_surface_create_from_png ( IMAGE_XORE_INPUT );
+				width = height = 64;
+				break;
 		}
 
 		cairo_set_source_surface ( cr, surface, drag_x, drag_y );
@@ -463,6 +572,9 @@ static gboolean drawing_area_button_press_event_cb ( GtkWidget *widget, GdkEvent
 								case TYPE_IS_DATA_ITEM:
 									l->open_menu = show_menu_popup_data_item;
 									break;
+								case TYPE_IS_INPUT:
+									l->open_menu = show_menu_popup_input;
+									break;
 							}
 						}
 						l->open_menu ( l );
@@ -501,7 +613,40 @@ static gboolean window_source_main_delete_event_cb ( GtkWidget *widget, gpointer
 
 	return TRUE;
 }
+static gboolean window_input_delete_event_cb ( GtkWidget *widget, gpointer data ) {
+	gtk_widget_hide ( w.window_input );
 
+	return TRUE;
+}
+
+static void combo_box_input_input_changed_cb ( GtkComboBox *widget, gpointer data ) {
+	const char *item = gtk_combo_box_get_active_id ( widget );
+	int id = atoi ( item );
+
+	switch ( id ) {
+		case 0: 
+			gtk_widget_hide ( w.frame_mysql_input );
+			gtk_widget_hide ( w.frame_window_input );
+			break;
+		case 1:
+			gtk_entry_set_text ( ( GtkEntry * ) w.entry_login_mysql_input, "" );
+			gtk_entry_set_text ( ( GtkEntry * ) w.entry_password_mysql_input, "" );
+			gtk_entry_set_text ( ( GtkEntry * ) w.entry_host_mysql_input, "" );
+			gtk_entry_set_text ( ( GtkEntry * ) w.entry_port_mysql_input, "" );
+			gtk_entry_set_text ( ( GtkEntry * ) w.entry_db_mysql_input, "" );
+			gtk_widget_show ( w.frame_mysql_input );
+			gtk_widget_hide ( w.frame_window_input );
+			break;
+		case 2:
+			gtk_widget_hide ( w.frame_mysql_input );
+			gtk_widget_show ( w.frame_window_input );
+			break;
+		case 3:
+			gtk_widget_hide ( w.frame_mysql_input );
+			gtk_widget_hide ( w.frame_window_input );
+			break;
+	}
+}
 static void combo_box_source_source_main_changed_cb ( GtkComboBox *widget, gpointer data ) {
 	const char *item = gtk_combo_box_get_active_id ( widget );
 	int id = atoi ( item );
@@ -521,12 +666,43 @@ static void combo_box_source_source_main_changed_cb ( GtkComboBox *widget, gpoin
 	}
 }
 
+static void check_and_save_mysql_input ( ) {
+	const char *login = gtk_entry_get_text ( ( GtkEntry * ) w.entry_login_mysql_input );
+	const char *password = gtk_entry_get_text ( ( GtkEntry * ) w.entry_password_mysql_input );
+	const char *host = gtk_entry_get_text ( ( GtkEntry * ) w.entry_host_mysql_input );
+	const char *port = gtk_entry_get_text ( ( GtkEntry * ) w.entry_port_mysql_input );
+	const char *db = gtk_entry_get_text ( ( GtkEntry * ) w.entry_db_mysql_input );
+	const char *table = gtk_entry_get_text ( ( GtkEntry * ) w.entry_table_mysql_input );
+	if ( strlen ( login ) == 0 || strlen ( password ) == 0 || strlen ( host ) == 0 || strlen ( port ) == 0 || strlen ( db ) == 0 || strlen ( table ) ) {
+		g_notification_set_body ( notify, "Должны быть указаны все поля" );
+		g_application_send_notification ( ( GApplication * ) app, NULL, notify );
+		return;
+	}
+
+	struct source_mysql *sm = calloc ( 1, sizeof ( struct source_mysql ) );
+	if ( !sm ) {
+		g_notification_set_body ( notify, "Не удалось выделить память для mysql" );
+		g_application_send_notification ( ( GApplication * ) app, NULL, notify );
+		return;
+	}
+
+	sm->login = g_strdup ( login );
+	sm->password = g_strdup ( password );
+	sm->host = g_strdup ( host );
+	sm->port = g_strdup ( port );
+	sm->db = g_strdup ( db );
+	sm->table = g_strdup ( table );
+
+	c_source_xore->data = sm;
+	c_source_xore->data_type = DATA_MYSQL;
+}
 static void check_and_save_mysql_source ( ) {
 	const char *login = gtk_entry_get_text ( ( GtkEntry * ) w.entry_login_mysql_source_main );
 	const char *password = gtk_entry_get_text ( ( GtkEntry * ) w.entry_password_mysql_source_main );
 	const char *host = gtk_entry_get_text ( ( GtkEntry * ) w.entry_host_mysql_source_main );
 	const char *port = gtk_entry_get_text ( ( GtkEntry * ) w.entry_port_mysql_source_main );
 	const char *db = gtk_entry_get_text ( ( GtkEntry * ) w.entry_db_mysql_source_main );
+	const char *table = gtk_entry_get_text ( ( GtkEntry * ) w.entry_table_mysql_source_main );
 	if ( strlen ( login ) == 0 || strlen ( password ) == 0 || strlen ( host ) == 0 || strlen ( port ) == 0 || strlen ( db ) == 0 ) {
 		g_notification_set_body ( notify, "Должны быть указаны все поля" );
 		g_application_send_notification ( ( GApplication * ) app, NULL, notify );
@@ -545,9 +721,27 @@ static void check_and_save_mysql_source ( ) {
 	sm->host = g_strdup ( host );
 	sm->port = g_strdup ( port );
 	sm->db = g_strdup ( db );
+	sm->table = g_strdup ( table );
 
 	c_source_xore->data = sm;
 	c_source_xore->data_type = DATA_MYSQL;
+}
+
+static void button_save_input_clicked_cb ( GtkButton *button, gpointer data ) {
+	const char *item = gtk_combo_box_get_active_id ( ( GtkComboBox * ) w.combo_box_source_source_main );
+	int id = atoi ( item );
+
+	switch ( id ) {
+		case 0: 
+			break;
+		case 1:
+			check_and_save_mysql_input ( );
+			break;
+		case 2:
+			break;
+		case 3:
+			break;
+	}
 }
 
 static void button_save_source_main_clicked_cb ( GtkButton *button, gpointer data ) {
@@ -656,6 +850,18 @@ static void create_source_settings ( void ) {
 	gtk_widget_set_margin_start ( w.box_db_mysql_source_main, 14 );
 	gtk_widget_set_margin_end ( w.box_db_mysql_source_main, 14 );
 
+	w.box_table_mysql_source_main = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	w.label_table_mysql_source_main = gtk_label_new ( "База данных" );
+	w.entry_table_mysql_source_main = gtk_entry_new ( );
+	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_table_mysql_source_main, 1 );
+	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_table_mysql_source_main, 30 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_table_mysql_source_main, w.label_table_mysql_source_main, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_table_mysql_source_main, w.entry_table_mysql_source_main, FALSE, FALSE, 0 );
+	gtk_widget_set_margin_top ( w.box_table_mysql_source_main, 14 );
+	gtk_widget_set_margin_bottom ( w.box_table_mysql_source_main, 14 );
+	gtk_widget_set_margin_start ( w.box_table_mysql_source_main, 14 );
+	gtk_widget_set_margin_end ( w.box_table_mysql_source_main, 14 );
+
 	w.button_save_source_main = gtk_button_new_with_label ( "Сохранить" );
 	g_signal_connect ( w.button_save_source_main, "clicked", G_CALLBACK ( button_save_source_main_clicked_cb ), NULL );
 	gtk_widget_set_margin_top ( w.button_save_source_main, 8 );
@@ -671,6 +877,7 @@ static void create_source_settings ( void ) {
 	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_source_main, w.box_host_mysql_source_main, FALSE, FALSE, 0 );
 	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_source_main, w.box_port_mysql_source_main, FALSE, FALSE, 0 );
 	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_source_main, w.box_db_mysql_source_main, FALSE, FALSE, 0 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_source_main, w.box_table_mysql_source_main, FALSE, FALSE, 0 );
 
 	gtk_box_pack_end ( ( GtkBox * ) w.box_source_main, w.box_buttons_end_source_main, FALSE, FALSE, 0 );
 
@@ -1028,6 +1235,161 @@ static void action_activate_select_new_project ( GSimpleAction *simple, GVariant
 	gtk_widget_destroy ( dialog );
 }
 
+static void create_input_settings ( void ) {
+	w.window_input = gtk_application_window_new ( app );
+	gtk_window_set_default_size ( ( GtkWindow * ) w.window_input, 400, 600 );
+	g_signal_connect ( w.window_input, "delete-event", G_CALLBACK ( window_input_delete_event_cb ), NULL );
+
+	w.box_input = gtk_box_new ( GTK_ORIENTATION_VERTICAL, 0 );
+	w.frame_input_input = g_object_new ( GTK_TYPE_FRAME, "shadow-type", GTK_SHADOW_NONE, NULL );
+	gtk_widget_set_margin_top ( w.frame_input_input, 16 );
+	gtk_widget_set_margin_start ( w.frame_input_input, 32 );
+	gtk_widget_set_margin_end ( w.frame_input_input, 32 );
+
+	w.box_input_input = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	gtk_widget_set_margin_top ( w.box_input_input, 14 );
+	gtk_widget_set_margin_bottom ( w.box_input_input, 14 );
+	gtk_widget_set_margin_start ( w.box_input_input, 14 );
+	gtk_widget_set_margin_end ( w.box_input_input, 14 );
+
+	w.label_input_input = gtk_label_new ( "Приёмник" );
+
+	w.combo_box_input_input = gtk_combo_box_text_new ( );
+	gtk_combo_box_text_append ( ( GtkComboBoxText * ) w.combo_box_input_input, "0", "Ничего" );
+	gtk_combo_box_text_append ( ( GtkComboBoxText * ) w.combo_box_input_input, "1", "Mysql" );
+	gtk_combo_box_text_append ( ( GtkComboBoxText * ) w.combo_box_input_input, "2", "Окно" );
+	gtk_combo_box_text_append ( ( GtkComboBoxText * ) w.combo_box_input_input, "3", "Консоль" );
+	gtk_combo_box_set_active ( ( GtkComboBox * ) w.combo_box_input_input, 0 );
+	g_signal_connect ( w.combo_box_input_input, "changed", G_CALLBACK ( combo_box_input_input_changed_cb ), NULL );
+
+	w.frame_mysql_input = g_object_new ( GTK_TYPE_FRAME, "shadow-type", GTK_SHADOW_NONE, NULL );
+	gtk_widget_set_margin_top ( w.frame_mysql_input, 16 );
+	gtk_widget_set_margin_start ( w.frame_mysql_input, 32 );
+	gtk_widget_set_margin_end ( w.frame_mysql_input, 32 );
+	w.box_mysql_input = gtk_box_new ( GTK_ORIENTATION_VERTICAL, 0 );
+	w.box_login_mysql_input = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	w.label_login_mysql_input = gtk_label_new ( "Логин" );
+	w.entry_login_mysql_input = gtk_entry_new ( );
+	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_login_mysql_input, 1 );
+	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_login_mysql_input, 30 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_login_mysql_input, w.label_login_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_login_mysql_input, w.entry_login_mysql_input, FALSE, FALSE, 0 );
+	gtk_widget_set_margin_top ( w.box_login_mysql_input, 14 );
+	gtk_widget_set_margin_bottom ( w.box_login_mysql_input, 14 );
+	gtk_widget_set_margin_start ( w.box_login_mysql_input, 14 );
+	gtk_widget_set_margin_end ( w.box_login_mysql_input, 14 );
+	gtk_container_add ( ( GtkContainer * ) w.frame_mysql_input, w.box_mysql_input );
+
+	w.box_password_mysql_input = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	w.label_password_mysql_input = gtk_label_new ( "Пароль" );
+	w.entry_password_mysql_input = gtk_entry_new ( );
+	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_password_mysql_input, 1 );
+	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_password_mysql_input, 30 );
+	gtk_entry_set_invisible_char ( ( GtkEntry * ) w.entry_password_mysql_input, '*' );
+	gtk_entry_set_visibility ( ( GtkEntry * ) w.entry_password_mysql_input, FALSE );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_password_mysql_input, w.label_password_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_password_mysql_input, w.entry_password_mysql_input, FALSE, FALSE, 0 );
+	gtk_widget_set_margin_top ( w.box_password_mysql_input, 14 );
+	gtk_widget_set_margin_bottom ( w.box_password_mysql_input, 14 );
+	gtk_widget_set_margin_start ( w.box_password_mysql_input, 14 );
+	gtk_widget_set_margin_end ( w.box_password_mysql_input, 14 );
+
+	w.box_host_mysql_input = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	w.label_host_mysql_input = gtk_label_new ( "Хост" );
+	w.entry_host_mysql_input = gtk_entry_new ( );
+	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_host_mysql_input, 1 );
+	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_host_mysql_input, 30 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_host_mysql_input, w.label_host_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_host_mysql_input, w.entry_host_mysql_input, FALSE, FALSE, 0 );
+	gtk_widget_set_margin_top ( w.box_host_mysql_input, 14 );
+	gtk_widget_set_margin_bottom ( w.box_host_mysql_input, 14 );
+	gtk_widget_set_margin_start ( w.box_host_mysql_input, 14 );
+	gtk_widget_set_margin_end ( w.box_host_mysql_input, 14 );
+
+	w.box_port_mysql_input = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	w.label_port_mysql_input = gtk_label_new ( "Порт" );
+	w.entry_port_mysql_input = gtk_entry_new ( );
+	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_port_mysql_input, 1 );
+	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_port_mysql_input, 30 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_port_mysql_input, w.label_port_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_port_mysql_input, w.entry_port_mysql_input, FALSE, FALSE, 0 );
+	gtk_widget_set_margin_top ( w.box_port_mysql_input, 14 );
+	gtk_widget_set_margin_bottom ( w.box_port_mysql_input, 14 );
+	gtk_widget_set_margin_start ( w.box_port_mysql_input, 14 );
+	gtk_widget_set_margin_end ( w.box_port_mysql_input, 14 );
+
+	w.box_db_mysql_input = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	w.label_db_mysql_input = gtk_label_new ( "База данных" );
+	w.entry_db_mysql_input = gtk_entry_new ( );
+	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_db_mysql_input, 1 );
+	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_db_mysql_input, 30 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_db_mysql_input, w.label_db_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_db_mysql_input, w.entry_db_mysql_input, FALSE, FALSE, 0 );
+	gtk_widget_set_margin_top ( w.box_db_mysql_input, 14 );
+	gtk_widget_set_margin_bottom ( w.box_db_mysql_input, 14 );
+	gtk_widget_set_margin_start ( w.box_db_mysql_input, 14 );
+	gtk_widget_set_margin_end ( w.box_db_mysql_input, 14 );
+
+	w.box_table_mysql_input = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	w.label_table_mysql_input = gtk_label_new ( "Таблица" );
+	w.entry_table_mysql_input = gtk_entry_new ( );
+	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_table_mysql_input, 1 );
+	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_table_mysql_input, 30 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_table_mysql_input, w.label_table_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_table_mysql_input, w.entry_table_mysql_input, FALSE, FALSE, 0 );
+	gtk_widget_set_margin_top ( w.box_table_mysql_input, 14 );
+	gtk_widget_set_margin_bottom ( w.box_table_mysql_input, 14 );
+	gtk_widget_set_margin_start ( w.box_table_mysql_input, 14 );
+	gtk_widget_set_margin_end ( w.box_table_mysql_input, 14 );
+
+	w.frame_window_input = g_object_new ( GTK_TYPE_FRAME, "shadow-type", GTK_SHADOW_NONE, NULL );
+	gtk_widget_set_margin_top ( w.frame_window_input, 16 );
+	gtk_widget_set_margin_start ( w.frame_window_input, 32 );
+	gtk_widget_set_margin_end ( w.frame_window_input, 32 );
+	w.box_window_input = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	w.label_window_input = gtk_label_new ( "Название вкладки" );
+	w.entry_window_input = gtk_entry_new ( );
+	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_window_input, 1 );
+	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_window_input, 30 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_window_input, w.label_window_input, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_window_input, w.entry_window_input, FALSE, FALSE, 0 );
+	gtk_widget_set_margin_top ( w.box_window_input, 14 );
+	gtk_widget_set_margin_bottom ( w.box_window_input, 14 );
+	gtk_widget_set_margin_start ( w.box_window_input, 14 );
+	gtk_widget_set_margin_end ( w.box_window_input, 14 );
+
+	w.button_save_input = gtk_button_new_with_label ( "Сохранить" );
+	g_signal_connect ( w.button_save_input, "clicked", G_CALLBACK ( button_save_input_clicked_cb ), NULL );
+	gtk_widget_set_margin_top ( w.button_save_input, 8 );
+	gtk_widget_set_margin_bottom ( w.button_save_input, 8 );
+	gtk_widget_set_margin_start ( w.button_save_input, 8 );
+	gtk_widget_set_margin_end ( w.button_save_input, 8 );
+
+	w.box_buttons_end_input = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_buttons_end_input, w.button_save_input, FALSE, FALSE, 0 );
+
+	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_input, w.box_login_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_input, w.box_password_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_input, w.box_host_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_input, w.box_port_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_input, w.box_db_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_mysql_input, w.box_table_mysql_input, FALSE, FALSE, 0 );
+
+	gtk_box_pack_end ( ( GtkBox * ) w.box_input, w.box_buttons_end_input, FALSE, FALSE, 0 );
+
+	gtk_box_pack_start ( ( GtkBox * ) w.box_input_input, w.label_input_input, FALSE, FALSE, 0 );
+	gtk_box_pack_end ( ( GtkBox * ) w.box_input_input, w.combo_box_input_input, FALSE, FALSE, 0 );
+
+	gtk_container_add ( ( GtkContainer * ) w.frame_input_input, w.box_input_input );
+	gtk_container_add ( ( GtkContainer * ) w.frame_window_input, w.box_window_input );
+	
+	gtk_box_pack_start ( ( GtkBox * ) w.box_input, w.frame_input_input, FALSE, FALSE, 0 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_input, w.frame_mysql_input, FALSE, FALSE, 0 );
+	gtk_box_pack_start ( ( GtkBox * ) w.box_input, w.frame_window_input, FALSE, FALSE, 0 );
+
+	gtk_container_add ( ( GtkContainer * ) w.window_input, w.box_input );
+}
+
 static void create_actions ( ) {
 	const GActionEntry entries[] = {
 		{ "select_save_project", action_activate_select_save_project },
@@ -1063,6 +1425,7 @@ static void app_activate_cb ( GtkApplication *app, gpointer data ) {
 
 	create_source_settings ( );
 	create_data_item_settings ( );
+	create_input_settings ( );
 
 	w.box_main = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
 

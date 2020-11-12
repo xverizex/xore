@@ -2,10 +2,12 @@
 #define __LIST_XORE__
 #define IMAGE_XORE_SOURCE            "xore_t_source.png"
 #define IMAGE_XORE_DATA_ITEM         "xore_t_data_item.png"
+#define IMAGE_XORE_INPUT             "xore_t_input.png"
 
 #define TYPE_IS_SOURCE          0
 #define TYPE_IS_DATA_ITEM       1
 #define TYPE_IS_NODE            2
+#define TYPE_IS_INPUT           3
 
 struct source_mysql {
 	int id;
@@ -14,6 +16,7 @@ struct source_mysql {
 	char *host;
 	char *port;
 	char *db;
+	char *table;
 };
 
 struct data_item {
@@ -34,6 +37,7 @@ struct nodes {
 #define DATA_MYSQL            1
 #define DATA_ITEM             2
 #define DATA_NODE             3
+#define DATA_WINDOW           4
 
 struct list_xore {
 	int id;
