@@ -8,6 +8,7 @@ GtkApplication *app;
 GNotification *notify;
 
 struct widgets {
+	GtkWidget *button_play;
 	GtkWidget *window_main;
 	GtkWidget *box_main;
 	GtkWidget *frame_tools;
@@ -1511,6 +1512,57 @@ static void create_input_settings ( void ) {
 	gtk_container_add ( ( GtkContainer * ) w.window_input, w.box_input );
 }
 
+static struct list_xore *find_next_source ( void ) {
+	struct nodes *n = nodes;
+
+	while ( n->next ) {
+		if ( n->in->type == TYPE_IS_SOURCE ) return n->in;
+
+		n = n->next;
+	}
+}
+
+struct data {
+	int type;
+	char **d;
+	int size_d;
+
+	struct data *next;
+};
+
+struct storage {
+	struct data *data;
+
+	struct storage *next;
+};
+
+static void button_play_clicked_cb ( GtkWidget *widget, gpointer data ) {
+	struct nodes **list_nodes = NULL;
+	int list_nodes_size = 0;
+	struct nodes *node_input = nodes;
+	struct nodes *node_data_item = nodes;
+
+	while ( 1 ) {
+		while ( node_input->next ) {
+			if ( node_input->out ) {
+				if ( node_input->out->type == TYPE_IS_INPUT ) break;
+			}
+
+			node_input = node_input->next;
+		}
+
+		if ( node_input->out->type != TYPE_IS_INPUT ) break;
+
+		while ( node_data_item->next ) {
+			if ( node_data_item->out == node_input->out ) {
+			}
+
+			node_data_item = node_data_item->next;
+		}
+	}
+
+}
+
 static void create_actions ( ) {
 	const GActionEntry entries[] = {
 		{ "select_save_project", action_activate_select_save_project },
@@ -1534,12 +1586,15 @@ static void app_activate_cb ( GtkApplication *app, gpointer data ) {
 	GMenu *menu_app = g_menu_new ( );
 	g_menu_append ( menu_app, "Сохранить проект", "app.select_save_project" );
 	g_menu_append ( menu_app, "Сохранить проект как...", "app.select_save_project_as" );
-	g_menu_append ( menu_app, "Создать новый проект", "app.select_new_project" );
 	g_menu_append ( menu_app, "Открыть проект", "app.select_open_project" );
+	g_menu_append ( menu_app, "Создать новый проект", "app.select_new_project" );
 
 	w.header_bar = gtk_header_bar_new ( );
 	gtk_header_bar_set_show_close_button ( ( GtkHeaderBar * ) w.header_bar, TRUE );
 	gtk_header_bar_set_decoration_layout ( ( GtkHeaderBar * ) w.header_bar, ":menu,minimize,maximize,close" );
+	w.button_play = gtk_button_new_from_icon_name ( "player_play", GTK_ICON_SIZE_BUTTON );
+	gtk_header_bar_pack_end ( ( GtkHeaderBar * ) w.header_bar, w.button_play );
+	g_signal_connect ( w.button_play, "clicked", G_CALLBACK ( button_play_clicked_cb ), NULL );
 
 	gtk_window_set_titlebar ( ( GtkWindow * ) w.window_main, w.header_bar );
 	gtk_application_set_app_menu ( app, ( GMenuModel * ) menu_app );
