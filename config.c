@@ -23,6 +23,7 @@ static int state = STATE_OFF;
 #define GROUP_STATE_DATA_ITEM   1
 #define GROUP_STATE_ITEM        2
 #define GROUP_STATE_NODE        3
+#define GROUP_STATE_INPUT       4
 static int group_state = -1;
 
 static char group[255];
@@ -208,6 +209,45 @@ static void int_data_item ( void ) {
 struct {
 	char name[255];
 	void (*copy) ( const char *s );
+} group_input[] = {
+	{ "id:", copy_id_main },
+	{ "x:", copy_x_main },
+	{ "y:", copy_y_main },
+	{ "width:", copy_width_main },
+	{ "height:", copy_height_main },
+	{ "data_type:", copy_data_type_main },
+	{ "data_id:", copy_data_id }
+};
+static const int group_input_size = 7;
+
+static void int_input ( void ) {
+	if ( line[0] == '}' ) {
+		o->type = TYPE_IS_INPUT;
+		state = STATE_OFF;
+		o->next = calloc ( 1, sizeof ( struct list_xore ) );
+		o = o->next;
+		return;
+	}
+
+	char *pline = line;
+	while ( *pline < 32 ) pline++;
+
+	for ( int i = 0; i < group_input_size; i++ ) {
+		int len = strlen ( group_input[i].name );
+		if ( !strncmp ( group_input[i].name, pline, len ) ) {
+			char *s = &line[len + 1];
+			while ( *s == ' ' ) s++;
+			char *end = strchr ( s, '\n' );
+			if ( end ) *end = 0;
+			int length = strlen ( s );
+			group_input[i].copy ( s );
+		}
+	}
+}
+
+struct {
+	char name[255];
+	void (*copy) ( const char *s );
 } group_source[] = {
 	{ "id:", copy_id_main },
 	{ "x:", copy_x_main },
@@ -291,6 +331,22 @@ static void copy_id ( const char *s ) {
 			ob->data_type = id;
 				}
 				break;
+		case DATA_WINDOW: {
+					  struct data_window *m = calloc ( 1, sizeof ( struct data_window ) );
+					  m->id = id;
+					  ob->data = m;
+					  ob->number = atoi ( group );
+					  ob->data_type = id;
+				  }
+				  break;
+		case DATA_CONSOLE: {
+					   struct data_console *m = calloc ( 1, sizeof ( struct data_console ) );
+					   m->id = id;
+					   ob->data = m;
+					   ob->number = atoi ( group );
+					   ob->data_type = id;
+				   }
+				   break;
 	}
 }
 
@@ -325,6 +381,74 @@ static void int_mysql ( void ) {
 			if ( end ) *end = 0;
 			int length = strlen ( s );
 			group_mysql[i].copy ( s );
+		}
+	}
+}
+
+static void copy_tab ( const char *s ) {
+	struct data_window *m = ( struct data_window * ) ob->data;
+	m->tab = strdup ( s );
+}
+
+struct {
+	char name[255];
+	void (*copy) ( const char *s );
+} group_window[] = {
+	{ "tab:", copy_tab }
+};
+
+static const int group_window_size = 1;
+
+
+static void int_window ( void ) {
+	if ( line[0] == '}' ) {
+		state = STATE_OFF;
+		return;
+	}
+
+	char *pline = line;
+	while ( *pline < 32 ) pline++;
+
+	for ( int i = 0; i < group_window_size; i++ ) {
+		int len = strlen ( group_window[i].name );
+		if ( !strncmp ( group_window[i].name, pline, len ) ) {
+			char *s = &line[len + 1];
+			while ( *s == ' ' ) s++;
+			char *end = strchr ( s, '\n' );
+			if ( end ) *end = 0;
+			int length = strlen ( s );
+			group_window[i].copy ( s );
+		}
+	}
+}
+
+struct {
+	char name[255];
+	void (*copy) ( const char *s );
+} group_console[] = {
+};
+
+static const int group_console_size = 0;
+
+
+static void int_console ( void ) {
+	if ( line[0] == '}' ) {
+		state = STATE_OFF;
+		return;
+	}
+
+	char *pline = line;
+	while ( *pline < 32 ) pline++;
+
+	for ( int i = 0; i < group_console_size; i++ ) {
+		int len = strlen ( group_console[i].name );
+		if ( !strncmp ( group_console[i].name, pline, len ) ) {
+			char *s = &line[len + 1];
+			while ( *s == ' ' ) s++;
+			char *end = strchr ( s, '\n' );
+			if ( end ) *end = 0;
+			int length = strlen ( s );
+			group_console[i].copy ( s );
 		}
 	}
 }
@@ -404,6 +528,14 @@ static void int_item ( void ) {
 					int_items ( );
 				}
 				break;
+		case DATA_WINDOW: {
+					  int_window ( );
+				  }
+				  break;
+		case DATA_CONSOLE: {
+					   int_console ( );
+				   }
+				   break;
 	}
 }
 
@@ -415,10 +547,11 @@ struct {
 	{ "source", int_source, GROUP_STATE_SOURCE },
 	{ "*", int_item, GROUP_STATE_ITEM },
 	{ "data_item", int_data_item, GROUP_STATE_DATA_ITEM },
-	{ "node", int_node, GROUP_STATE_NODE }
+	{ "node", int_node, GROUP_STATE_NODE },
+	{ "input", int_input, GROUP_STATE_INPUT }
 };
 
-static int groups_size = 4;
+static int groups_size = 5;
 
 static void (*interrupt) ( void );
 
@@ -544,6 +677,7 @@ void read_config ( char *file ) {
 		switch ( o->type ) {
 			case TYPE_IS_SOURCE: o->file = IMAGE_XORE_SOURCE; break;
 			case TYPE_IS_DATA_ITEM: o->file = IMAGE_XORE_DATA_ITEM; break;
+			case TYPE_IS_INPUT: o->file = IMAGE_XORE_INPUT; break;
 		}
 
 		o = o->next;

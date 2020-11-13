@@ -185,6 +185,19 @@ static void show_settings_input ( struct list_xore *l ) {
 			gtk_widget_hide ( w.frame_window_input );
 			break;
 		case DATA_WINDOW:
+			gtk_widget_hide ( w.frame_mysql_input );
+			gtk_combo_box_set_active ( ( GtkComboBox * ) w.combo_box_input_input, 2 );
+			if ( c_source_xore->data ) {
+				struct data_window *m = ( struct data_window * ) c_source_xore->data;
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_window_input, m->tab );
+			} else {
+				gtk_entry_set_text ( ( GtkEntry * ) w.entry_window_input, "" );
+			}
+			break;
+		case DATA_CONSOLE:
+			gtk_combo_box_set_active ( ( GtkComboBox * ) w.combo_box_input_input, 3 );
+			gtk_widget_hide ( w.frame_mysql_input );
+			gtk_widget_hide ( w.frame_window_input );
 			break;
 		default:
 			gtk_combo_box_set_active ( ( GtkComboBox * ) w.combo_box_source_source_main, 0 );
@@ -666,6 +679,38 @@ static void combo_box_source_source_main_changed_cb ( GtkComboBox *widget, gpoin
 	}
 }
 
+static void check_and_save_window_input ( ) {
+	const char *tab = gtk_entry_get_text ( ( GtkEntry * ) w.entry_window_input );
+	if ( strlen ( tab ) == 0 ) {
+		g_notification_set_body ( notify, "Должны быть указаны все поля" );
+		g_application_send_notification ( ( GApplication * ) app, NULL, notify );
+		return;
+	}
+
+	struct data_window *sm = calloc ( 1, sizeof ( struct data_window ) );
+	if ( !sm ) {
+		g_notification_set_body ( notify, "Не удалось выделить память для mysql" );
+		g_application_send_notification ( ( GApplication * ) app, NULL, notify );
+		return;
+	}
+
+	sm->tab = g_strdup ( tab );
+
+	c_source_xore->data = sm;
+	c_source_xore->data_type = DATA_WINDOW;
+}
+static void check_and_save_console_input ( ) {
+
+	struct data_console *sm = calloc ( 1, sizeof ( struct data_console ) );
+	if ( !sm ) {
+		g_notification_set_body ( notify, "Не удалось выделить память для mysql" );
+		g_application_send_notification ( ( GApplication * ) app, NULL, notify );
+		return;
+	}
+
+	c_source_xore->data = sm;
+	c_source_xore->data_type = DATA_CONSOLE;
+}
 static void check_and_save_mysql_input ( ) {
 	const char *login = gtk_entry_get_text ( ( GtkEntry * ) w.entry_login_mysql_input );
 	const char *password = gtk_entry_get_text ( ( GtkEntry * ) w.entry_password_mysql_input );
@@ -728,7 +773,7 @@ static void check_and_save_mysql_source ( ) {
 }
 
 static void button_save_input_clicked_cb ( GtkButton *button, gpointer data ) {
-	const char *item = gtk_combo_box_get_active_id ( ( GtkComboBox * ) w.combo_box_source_source_main );
+	const char *item = gtk_combo_box_get_active_id ( ( GtkComboBox * ) w.combo_box_input_input );
 	int id = atoi ( item );
 
 	switch ( id ) {
@@ -738,8 +783,10 @@ static void button_save_input_clicked_cb ( GtkButton *button, gpointer data ) {
 			check_and_save_mysql_input ( );
 			break;
 		case 2:
+			check_and_save_window_input ( );
 			break;
 		case 3:
+			check_and_save_console_input ( );
 			break;
 	}
 }
@@ -851,7 +898,7 @@ static void create_source_settings ( void ) {
 	gtk_widget_set_margin_end ( w.box_db_mysql_source_main, 14 );
 
 	w.box_table_mysql_source_main = gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
-	w.label_table_mysql_source_main = gtk_label_new ( "База данных" );
+	w.label_table_mysql_source_main = gtk_label_new ( "Таблица" );
 	w.entry_table_mysql_source_main = gtk_entry_new ( );
 	gtk_entry_set_alignment ( ( GtkEntry * ) w.entry_table_mysql_source_main, 1 );
 	gtk_entry_set_width_chars ( ( GtkEntry * ) w.entry_table_mysql_source_main, 30 );
@@ -1006,6 +1053,40 @@ static void create_group ( FILE *fp, struct list_xore *l ) {
 			}
 			fprintf ( fp, "}\n\n" );
 			break;
+		case TYPE_IS_INPUT: {
+			fprintf ( fp, "input {\n" );
+			fprintf ( fp, "\tid: %d\n", l->id );
+			fprintf ( fp, "\tx: %d\n", l->x );
+			fprintf ( fp, "\ty: %d\n", l->y );
+			fprintf ( fp, "\twidth: %d\n", l->width );
+			fprintf ( fp, "\theight: %d\n", l->height );
+			fprintf ( fp, "\tdata_type: %d\n", l->data_type );
+			switch ( l->data_type ) {
+				case DATA_MYSQL: {
+							 if ( l->data ) {
+							 	struct source_mysql *m = ( struct source_mysql * ) l->data;
+							 	fprintf ( fp, "\tdata_id: %d\n", m->id );
+							 }
+						 }
+						 break;
+				case DATA_WINDOW: {
+							  if ( l->data ) {
+								  struct data_window *m = ( struct data_window * ) l->data;
+								  fprintf ( fp, "\tdata_id: %d\n", m->id );
+							  }
+						  }
+						  break;
+				case DATA_CONSOLE: {
+							   if ( l->data ) {
+								  struct data_console *m = ( struct data_console * ) l->data;
+								  fprintf ( fp, "\tdata_id: %d\n", m->id );
+							   }
+						   }
+						   break;
+			}
+			fprintf ( fp, "}\n\n" );
+		}	
+			break;
 	}
 }
 
@@ -1024,6 +1105,7 @@ static void create_data ( FILE *fp, struct list_xore *l ) {
 						if ( m->host ) fprintf ( fp, "\thost: %s\n", m->host );
 						if ( m->port ) fprintf ( fp, "\tport: %s\n", m->port );
 						if ( m->db ) fprintf ( fp, "\tdb: %s\n", m->db );
+						if ( m->table ) fprintf ( fp, "\ttable: %s\n", m->table );
 						fprintf ( fp, "}\n\n" );
 					 }
 				 }
@@ -1039,6 +1121,27 @@ static void create_data ( FILE *fp, struct list_xore *l ) {
 					 }
 				}
 				break;
+		case DATA_WINDOW: {
+					  if ( l->data ) {
+						  struct data_window *m = ( struct data_window * ) l->data;
+						  m->id = id_data_storage++;
+						  fprintf ( fp, "%d {\n", m->id );
+						  fprintf ( fp, "\tid: %d\n", DATA_WINDOW );
+						  if ( m->tab ) fprintf ( fp, "\ttab: %s\n", m->tab );
+						  fprintf ( fp, "}\n\n" );
+					  }
+				  }
+				  break;
+		case DATA_CONSOLE: {
+					   if ( l->data ) {
+						   struct data_console *m = ( struct data_console * ) l->data;
+						   m->id = id_data_storage++;
+						   fprintf ( fp, "%d {\n", m->id );
+						   fprintf ( fp, "\tid: %d\n", DATA_CONSOLE );
+						   fprintf ( fp, "}\n\n" );
+					   }
+				   }
+				   break;
 	}
 }
 
@@ -1069,6 +1172,11 @@ static void action_activate_select_save_project ( GSimpleAction *simple, GVarian
 						     create_group ( fp, l );
 						}
 						break;
+			case TYPE_IS_INPUT: {
+						    create_data ( fp, l );
+						    create_group ( fp, l );
+					    }
+					    break;
 		}
 
 		l = l->next;
@@ -1097,6 +1205,14 @@ static void free_data_mysql ( void *data ) {
 	}
 }
 
+static void free_data_window ( void *data ) {
+	if ( data ) {
+		struct data_window *m = ( struct data_window * ) data;
+		if ( m->tab ) free ( m->tab );
+		free ( m );
+	}
+}
+
 static void clear_list_xore ( void ) {
 	struct list_xore *l = get_objects();
 	struct list_xore *ld;
@@ -1111,6 +1227,11 @@ static void clear_list_xore ( void ) {
 							 l->data = NULL;
 						 }
 					break;
+				case DATA_WINDOW: {
+							  free_data_window ( l->data );
+							  l->data = NULL;
+						  }
+						  break;
 			}
 		}
 		l->file = NULL;

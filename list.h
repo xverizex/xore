@@ -24,6 +24,15 @@ struct data_item {
 	char *item;
 };
 
+struct data_window {
+	int id;
+	char *tab;
+};
+
+struct data_console {
+	int id;
+};
+
 struct nodes {
 	double sx;
 	double sy;
@@ -38,6 +47,7 @@ struct nodes {
 #define DATA_ITEM             2
 #define DATA_NODE             3
 #define DATA_WINDOW           4
+#define DATA_CONSOLE          5
 
 struct list_xore {
 	int id;
